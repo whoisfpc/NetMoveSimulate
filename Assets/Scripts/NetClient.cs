@@ -11,9 +11,11 @@ namespace NetMoveSimulate
 		public GameObject playerPrefab;
 
 		public Transform spawnPoint;
-
+		[Range(0, 1)]
 		public float lag = 0f;
+		[Range(0, 1)]
 		public float lagVariance = 0f;
+		[Range(0, 1)]
 		public float loss = 0f;
 
 		public Transform RefRoot { get; private set; }
@@ -27,6 +29,8 @@ namespace NetMoveSimulate
 		private NetChannel receiveChannel;
 		private NetChannel sendChannel;
 		private List<NetPlayer> players = new();
+
+		private float oldLag, oldLagVariance, oldLoss;
 
 		public void Init(Transform refRoot, PlayerInput playerInput, NetServer server)
 		{
@@ -44,12 +48,13 @@ namespace NetMoveSimulate
 			player.InitLocal(this, playerInput.camera.transform);
 			players.Add(player);
 			LocalPlayer = player;
-			user.player = player;
-			user.orbitCamera = playerInput.camera.GetComponent<OrbitCamera>();
-			user.orbitCamera.focus = player.transform;
+			user.Player = player;
+			user.OrbitCamera = playerInput.camera.GetComponent<OrbitCamera>();
+			user.OrbitCamera.focus = player.transform;
 			
 			server.Connect(this, out sendChannel, out receiveChannel);
 			isConnected = true;
+			TryRefreshNetInfoText(true);
 		}
 
 		private void Update()
@@ -58,6 +63,30 @@ namespace NetMoveSimulate
 			{
 				// TODO: fetch interval
 				FetchServerMessage();
+			}
+		}
+
+		private void OnValidate()
+		{
+			TryRefreshNetInfoText(false);
+		}
+
+		private void TryRefreshNetInfoText(bool force)
+		{
+			bool hasDiff = false;
+			hasDiff |= oldLag != lag;
+			hasDiff |= oldLagVariance != lagVariance;
+			hasDiff |= oldLoss != loss;
+			if (hasDiff || force)
+			{
+				oldLag = lag;
+				oldLagVariance = lagVariance;
+				oldLoss = loss;
+
+				float lagMs = lag * 1000;
+				float lagVarianceMs = lagVariance * 1000;
+				string infoText = $"Lag: {lagMs:F0}ms\nLagVarianse: {lagVarianceMs:F0}ms\nLoss: {loss:P1}%";
+				user.netInfoText.text = infoText;
 			}
 		}
 

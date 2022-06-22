@@ -14,6 +14,10 @@ namespace NetMoveSimulate
 
 		public float clientXOffset = 100f;
 
+		public Vector2 lagRange;
+		public Vector2 lagVarianceRange;
+		public Vector2 lossRange;
+
 		private PlayerInputManager playerInputManager;
 
 
@@ -29,6 +33,9 @@ namespace NetMoveSimulate
 			GameObject clientRefRoot = new GameObject($"Client {player.user.id}");
 			clientRefRoot.transform.position = new Vector3(xPos, 0, 0);
 			var client = Instantiate(clientPrefab);
+			client.lag = Random.Range(lagRange.x, lagRange.y);
+			client.lagVariance = Random.Range(lagVarianceRange.x, lagVarianceRange.y);
+			client.loss = Random.Range(lossRange.x, lossRange.y);
 			client.Init(clientRefRoot.transform, player, server);
 			
 			//mainCamera.gameObject.SetActive(false);

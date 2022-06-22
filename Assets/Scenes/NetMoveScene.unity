@@ -334,6 +334,9 @@ MonoBehaviour:
   clientPrefab: {fileID: 2381083310930277854, guid: 8808767df06a7574d8e7e211db968007,
     type: 3}
   clientXOffset: 100
+  lagRange: {x: 0, y: 0.1}
+  lagVarianceRange: {x: 0, y: 0.02}
+  lossRange: {x: 0, y: 0}
 --- !u!1 &961739749
 GameObject:
   m_ObjectHideFlags: 0
