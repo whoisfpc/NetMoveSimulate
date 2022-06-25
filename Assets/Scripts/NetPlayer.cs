@@ -48,6 +48,7 @@ namespace NetMoveSimulate
 		}
 
 		public float maxSpeed = 5f;
+		public float rotateAngleSpeed = 360f;
 		public Renderer bodyRenderer;
 		public uint id;
 
@@ -111,11 +112,18 @@ namespace NetMoveSimulate
 
 			NetPosition += maxSpeed * Time.deltaTime * playerMoveVector;
 
+			if (playerMoveVector != Vector3.zero)
+			{
+				Quaternion targetRotation = Quaternion.LookRotation(playerMoveVector);
+				NetRotation = Quaternion.RotateTowards(NetRotation, targetRotation, Time.deltaTime * rotateAngleSpeed);
+			}
+
 			LocalPlayerMoveMsg msg = new LocalPlayerMoveMsg()
 			{
 				sequence = ++sequence,
 				id = id,
 				position = NetPosition,
+				rotation = NetRotation,
 			};
 			client.SendMoveMsg(msg);
 		}
@@ -125,6 +133,7 @@ namespace NetMoveSimulate
 			if (sequence < remoteMoveMsg.sequence)
 			{
 				NetPosition = remoteMoveMsg.position;
+				NetRotation = remoteMoveMsg.rotation;
 				sequence = remoteMoveMsg.sequence;
 			}
 		}

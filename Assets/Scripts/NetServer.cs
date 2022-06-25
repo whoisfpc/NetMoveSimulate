@@ -12,6 +12,7 @@ namespace NetMoveSimulate
 			public readonly uint id;
 			public readonly Color bodyColor;
 			public Vector3 position;
+			public Quaternion rotation;
 			public uint maxSequence;
 
 			public NetPlayerInfo(uint id, Color bodyColor)
@@ -69,6 +70,7 @@ namespace NetMoveSimulate
 					if (info.maxSequence < moveMsg.sequence)
 					{
 						info.position = moveMsg.position;
+						info.rotation = moveMsg.rotation;
 						info.maxSequence = moveMsg.sequence;
 					}
 					break;
@@ -85,6 +87,7 @@ namespace NetMoveSimulate
 					id = info.id,
 					sequence = info.maxSequence,
 					position = info.position,
+					rotation = info.rotation,
 				};
 				foreach (var sendChannel in sendChannels)
 				{
@@ -111,6 +114,7 @@ namespace NetMoveSimulate
 				{
 					id = info.id,
 					position = info.position,
+					rotation = info.rotation,
 					bodyColor = info.bodyColor,
 				};
 				msg.remotePlayers.Add(remoteInfo);
@@ -121,6 +125,7 @@ namespace NetMoveSimulate
 			{
 				id = id,
 				position = client.LocalPlayer.NetPosition,
+				rotation = client.LocalPlayer.NetRotation,
 				bodyColor = client.LocalPlayer.BodyColor,
 			};
 			foreach (var sendChannel in sendChannels)
@@ -128,8 +133,11 @@ namespace NetMoveSimulate
 				sendChannel.Push(Time.time, newPlayerInfo);
 			}
 
-			NetPlayerInfo playerInfo = new NetPlayerInfo(id, client.LocalPlayer.BodyColor);
-			playerInfo.position = client.LocalPlayer.NetPosition;
+			NetPlayerInfo playerInfo = new NetPlayerInfo(id, client.LocalPlayer.BodyColor)
+			{
+				position = client.LocalPlayer.NetPosition,
+				rotation = client.LocalPlayer.NetRotation
+			};
 			playerInfos.Add(playerInfo);
 			receiveChannels.Add(c2sChannel);
 			sendChannels.Add(s2cChannel);

@@ -7,6 +7,7 @@ namespace NetMoveSimulate.Network
 	public class PlayerSpawnInfo
 	{
 		public Vector3 position;
+		public Quaternion rotation;
 		public Color bodyColor;
 		public uint id;
 	}
@@ -22,6 +23,7 @@ namespace NetMoveSimulate.Network
 		public uint sequence;
 		public uint id;
 		public Vector3 position;
+		public Quaternion rotation;
 	}
 
 	public class RemotePlayerMoveMsg
@@ -29,5 +31,6 @@ namespace NetMoveSimulate.Network
 		public uint sequence;
 		public uint id;
 		public Vector3 position;
+		public Quaternion rotation;
 	}
 }
