@@ -1,7 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
 using NetMoveSimulate.Network;
+using UnityEngine;
 
 namespace NetMoveSimulate
 {
@@ -44,7 +42,7 @@ namespace NetMoveSimulate
 			{
 				bodyColor = value;
 				bodyRenderer.material.color = value;
-			} 
+			}
 		}
 
 		public float maxSpeed = 5f;
