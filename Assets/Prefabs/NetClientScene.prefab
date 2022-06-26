@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 642770255726699839}
   - component: {fileID: 7899093432924240825}
   - component: {fileID: 1229216116003044744}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube (3)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -109,7 +109,7 @@ GameObject:
   - component: {fileID: 1181023955924083564}
   - component: {fileID: 835543041638750299}
   - component: {fileID: 2393779057922994582}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube (2)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -204,7 +204,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7166946116089085828}
   - component: {fileID: 2381083310930277854}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: NetClientScene
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -225,7 +225,7 @@ Transform:
   m_Children:
   - {fileID: 2462444975625846774}
   m_Father: {fileID: 0}
-  m_RootOrder: 8
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2381083310930277854
 MonoBehaviour:
@@ -257,7 +257,7 @@ GameObject:
   - component: {fileID: 4424546417144974937}
   - component: {fileID: 7939457094993865749}
   - component: {fileID: 3809804030547255760}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Plane
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -360,7 +360,7 @@ GameObject:
   - component: {fileID: 6128579045425323079}
   - component: {fileID: 4981940787845297097}
   - component: {fileID: 8830865481064098543}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -457,7 +457,7 @@ GameObject:
   - component: {fileID: 8554144304063080691}
   - component: {fileID: 580916850959497516}
   - component: {fileID: 1508264849915758461}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -551,7 +551,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5598316675393123545}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: SpawnPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
