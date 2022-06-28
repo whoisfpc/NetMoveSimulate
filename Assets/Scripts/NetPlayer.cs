@@ -5,6 +5,13 @@ namespace NetMoveSimulate
 {
 	public class NetPlayer : MonoBehaviour
 	{
+		private enum MoveMode
+		{
+			Walking,
+			Falling,
+		}
+
+
 		public Transform RefRoot { get; private set; }
 
 		public Vector3 NetPosition
@@ -45,6 +52,9 @@ namespace NetMoveSimulate
 			}
 		}
 
+		private const float AVOID_COLLIDER_DIST = 0.01f;
+		private const int MAX_RESOLVE_OVERLAP_COUNT = 3;
+
 		public float maxSpeed = 5f;
 		public float rotateAngleSpeed = 360f;
 		public Renderer bodyRenderer;
@@ -63,7 +73,10 @@ namespace NetMoveSimulate
 		private readonly Collider[] penetrateOverlapCache = new Collider[64];
 		private Vector3 gravity = new Vector3(0, -0.98f, 0);
 		private Vector3 currentVelocity;
+		private MoveMode currentMoveMode = MoveMode.Walking;
+		private bool overlapResolved;
 		private CapsuleParamsCache capsuleCache;
+		private Vector3 groundNormal = Vector3.up;
 
 		private void Awake()
 		{
@@ -75,10 +88,7 @@ namespace NetMoveSimulate
 			this.client = client;
 			RefRoot = client.RefRoot;
 			transform.SetParent(RefRoot);
-			var spawnNetPos = RefRoot.InverseTransformPoint(client.spawnPoint.position);
-			var spawnNetRot = Quaternion.Inverse(RefRoot.rotation) * client.spawnPoint.rotation;
-			NetPosition = spawnNetPos;
-			NetRotation = spawnNetRot;
+			transform.SetPositionAndRotation(client.spawnPoint.position, client.spawnPoint.rotation);
 			this.inputSpace = inputSpace;
 			BodyColor = Color.HSVToRGB(Random.value, 1f, 1f);
 			isLocalPlayer = true;
@@ -112,10 +122,14 @@ namespace NetMoveSimulate
 			if (isLocalPlayer)
 			{
 				capsuleCache.RefreshShapeParams();
-				ResolvePenetrate();
+				// check and do jump
 				// step 1: resolve penetrate
-				// step 2: check ground, change move mode
-				LocalPlayerUpdate();
+				ResolvePenetrate();
+				//if (overlapResolved)
+				{
+					// step 2: check ground, change move mode
+					PerformMove();
+				}
 				ClearJumpInput();
 			}
 		}
@@ -126,13 +140,12 @@ namespace NetMoveSimulate
 			Vector3 p2 = capsuleCache.PointP2;
 			float radius = capsuleCache.Radius;
 			int resolvePenetrateCount = 0;
-			bool overlapResolved = false;
+			overlapResolved = false;
 			Vector3 totalSeparateOffset = Vector3.zero;
 			Vector3 tempCheckPos = capsuleCache.Capsule.transform.position;
 			Quaternion tempCheckRot = capsuleCache.Capsule.transform.rotation;
-			while (resolvePenetrateCount < 3)
+			while (resolvePenetrateCount++ < MAX_RESOLVE_OVERLAP_COUNT)
 			{
-				resolvePenetrateCount++;
 				Vector3 checkP1 = p1 + totalSeparateOffset;
 				Vector3 checkP2 = p2 + totalSeparateOffset;
 				int overlapCount = Physics.OverlapCapsuleNonAlloc(checkP1, checkP2, radius, penetrateOverlapCache, groundMask, QueryTriggerInteraction.Ignore);
@@ -145,7 +158,7 @@ namespace NetMoveSimulate
 							other, other.transform.position, other.transform.rotation,
 							out Vector3 direction, out float distance))
 						{
-							Vector3 separateOffset = direction * distance;
+							Vector3 separateOffset = direction * (distance + AVOID_COLLIDER_DIST);
 							tempCheckPos += separateOffset;
 							totalSeparateOffset += separateOffset;
 						}
@@ -157,7 +170,109 @@ namespace NetMoveSimulate
 					break;
 				}
 			}
-			NetPosition += totalSeparateOffset;
+			transform.position += totalSeparateOffset;
+		}
+
+		private void PerformMove()
+		{
+			switch (currentMoveMode)
+			{
+				case MoveMode.Walking:
+					PerformWalking();
+					break;
+				case MoveMode.Falling:
+					PerformFalling();
+					break;
+				default:
+					break;
+			}
+		}
+
+		private void PerformWalking()
+		{
+			// TODO: split delta time for
+			// TODO: acceleration and brake deceleration
+			// add input acceleration and ramp velocity
+			// move along ground
+			// if not on ground, switch to falling
+			// should have near ground falling?
+
+			Vector3 rightAxis = Vector3.ProjectOnPlane(inputSpace.right, Vector3.up);
+			Vector3 forwardAxis = Vector3.ProjectOnPlane(inputSpace.forward, Vector3.up);
+			Vector3 playerMoveVector = rightAxis * moveInput.x + forwardAxis * moveInput.y;
+
+			currentVelocity = maxSpeed * playerMoveVector;
+
+			if (playerMoveVector != Vector3.zero)
+			{
+				Quaternion targetRotation = Quaternion.LookRotation(playerMoveVector);
+				transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, Time.deltaTime * rotateAngleSpeed);
+			}
+
+			var currentHorizonVelocity = new Vector3(currentVelocity.x, 0, currentVelocity.z);
+			var floorDotVel = Vector3.Dot(groundNormal, currentHorizonVelocity);
+			var rampVelocity = new Vector3(currentVelocity.x,  -floorDotVel / groundNormal.y, currentVelocity.z);
+
+			currentVelocity = rampVelocity.normalized * currentVelocity.magnitude;
+			Vector3 canMoveDelta = SafeMove(currentVelocity * Time.deltaTime);
+			transform.position += canMoveDelta;
+			UpdateGround();
+
+			SendMoveMsg();
+		}
+
+		private void PerformFalling()
+		{
+			// add input acceleration and gravity
+			// sweep and slide, move and check ground (with additive check distance)
+			// if on ground, switch to walking
+		}
+
+		private Vector3 SafeMove(Vector3 delta)
+		{
+			Vector3 canMoveDelta = Vector3.zero;
+			Vector3 dir = delta.normalized;
+			float remainDist = delta.magnitude;
+			int moveCount = 0;
+			Vector3 p1 = capsuleCache.PointP1;
+			Vector3 p2 = capsuleCache.PointP2;
+			float radius = capsuleCache.Radius;
+			RaycastHit hit;
+
+			while (remainDist > 0 && moveCount++ < 3)
+			{
+				if (Physics.CapsuleCast(p1 + canMoveDelta, p2 + canMoveDelta, radius, dir, out hit, remainDist + AVOID_COLLIDER_DIST, groundMask, QueryTriggerInteraction.Ignore))
+				{
+					float moveDist = Mathf.Min(hit.distance, remainDist);
+					canMoveDelta += dir * moveDist;
+					remainDist -= moveDist;
+					// TODO: walkable normal
+					Vector3 reflectNormal = hit.normal;
+					if (reflectNormal.y < 0.7)
+					{
+						reflectNormal.y = 0;
+						reflectNormal.Normalize();
+					}
+					dir = Vector3.ProjectOnPlane(dir, reflectNormal);
+				}
+				else
+				{
+					canMoveDelta += dir * remainDist;
+					remainDist = 0;
+				}
+			}
+			return canMoveDelta;
+		}
+
+		private void UpdateGround()
+		{
+			Vector3 p1 = capsuleCache.PointP1;
+			Vector3 p2 = capsuleCache.PointP2;
+			float radius = capsuleCache.Radius;
+			if (Physics.CapsuleCast(p1, p2, radius, Vector3.down, out RaycastHit hit, maxStairHeight, groundMask, QueryTriggerInteraction.Ignore))
+			{
+				groundNormal = hit.normal;
+			}
 		}
 
 		private void LocalPlayerUpdate()
