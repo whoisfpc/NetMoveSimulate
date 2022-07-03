@@ -145,13 +145,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 5
+  groundAcceleration: 50
+  groundDeceleration: 100
+  airAcceleration: 5
+  airDeceleration: 0
   rotateAngleSpeed: 360
-  bodyRenderer: {fileID: 1789124051368441552}
-  id: 0
-  capsule: {fileID: 6638390652943461296}
   groundMask:
     serializedVersion: 2
     m_Bits: 64
+  maxStairHeight: 0.3
+  minGroundNormal: 0.71
+  jumpInitSpeed: 8
+  bodyRenderer: {fileID: 1789124051368441552}
+  id: 0
+  capsule: {fileID: 6638390652943461296}
 --- !u!1 &3885522397043989651
 GameObject:
   m_ObjectHideFlags: 0
