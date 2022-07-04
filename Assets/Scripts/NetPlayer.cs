@@ -299,15 +299,17 @@ namespace NetMoveSimulate
 			{
 				if (Physics.CapsuleCast(p1 + canMoveDelta, p2 + canMoveDelta, radius, dir, out hit, remainDist + AVOID_COLLIDER_DIST, groundMask, QueryTriggerInteraction.Ignore))
 				{
-					float moveDist = Mathf.Min(hit.distance, remainDist);
+					float moveDist = Mathf.Min(hit.distance - AVOID_COLLIDER_DIST, remainDist);
 					canMoveDelta += dir * moveDist;
 					remainDist -= moveDist;
-					// TODO: walkable normal
 					Vector3 reflectNormal = hit.normal;
-					if (reflectNormal.y < 0.7)
+					if (currentMoveMode == MoveMode.Walking)
 					{
-						reflectNormal.y = 0;
-						reflectNormal.Normalize();
+						if (reflectNormal.y < minGroundNormal)
+						{
+							reflectNormal.y = 0;
+							reflectNormal.Normalize();
+						}
 					}
 					dir = Vector3.ProjectOnPlane(dir, reflectNormal);
 				}
@@ -330,7 +332,24 @@ namespace NetMoveSimulate
 			bool foundGround = false;
 			if (Physics.CapsuleCast(p1, p2, radius, Vector3.down, out RaycastHit hit, checkDist, groundMask, QueryTriggerInteraction.Ignore))
 			{
-				foundGround = IsValidGroundHit(hit);
+				// TODO: check distance by move mode
+				float groundDist = hit.distance - CHECK_GROUND_UP_OFFSET;
+				if (currentMoveMode == MoveMode.Falling)
+				{
+					if (groundDist <= GROUND_FLOAT_MAX_DIST)
+					{
+						foundGround = IsValidGroundHit(hit);
+					}
+				}
+				else
+				{
+					// TODO: add gravity for walking mode
+					foundGround = IsValidGroundHit(hit);
+				}
+				if (foundGround)
+				{
+					groundNormal = hit.normal;
+				}
 			}
 
 			if (!foundGround)
@@ -364,7 +383,14 @@ namespace NetMoveSimulate
 
 		private void SwitchMoveMode(MoveMode newMode)
 		{
-			currentMoveMode = newMode;
+			if (currentMoveMode != newMode)
+			{
+				currentMoveMode = newMode;
+				if (currentMoveMode == MoveMode.Walking)
+				{
+					currentVelocity.y = 0;
+				}
+			}
 		}
 
 		private void SendMoveMsg()
