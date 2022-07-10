@@ -89,6 +89,7 @@ namespace NetMoveSimulate
 		private bool overlapResolved;
 		private CapsuleParamsCache capsuleCache;
 		private Vector3 groundNormal = Vector3.up;
+		private float groundDist = 0;
 		// update every frame by CachePlayerMoveVector
 		private Vector3 playerMoveVector;
 
@@ -252,6 +253,10 @@ namespace NetMoveSimulate
 			var rampVelocity = new Vector3(currentVelocity.x,  -floorDotVel / groundNormal.y, currentVelocity.z);
 
 			currentVelocity = rampVelocity.normalized * currentVelocity.magnitude;
+			if (groundDist > GROUND_FLOAT_MAX_DIST)
+			{
+				currentVelocity.y += gravity.y * dt;
+			}
 			Vector3 canMoveDelta = SafeMove(currentVelocity * dt);
 			transform.position += canMoveDelta;
 			UpdateGround();
@@ -286,6 +291,7 @@ namespace NetMoveSimulate
 
 		private Vector3 SafeMove(Vector3 delta)
 		{
+			// TODO: update velocity
 			Vector3 canMoveDelta = Vector3.zero;
 			Vector3 dir = delta.normalized;
 			float remainDist = delta.magnitude;
@@ -312,6 +318,7 @@ namespace NetMoveSimulate
 						}
 					}
 					dir = Vector3.ProjectOnPlane(dir, reflectNormal);
+					dir.Normalize();
 				}
 				else
 				{
@@ -333,10 +340,10 @@ namespace NetMoveSimulate
 			if (Physics.CapsuleCast(p1, p2, radius, Vector3.down, out RaycastHit hit, checkDist, groundMask, QueryTriggerInteraction.Ignore))
 			{
 				// TODO: check distance by move mode
-				float groundDist = hit.distance - CHECK_GROUND_UP_OFFSET;
+				float dist = hit.distance - CHECK_GROUND_UP_OFFSET;
 				if (currentMoveMode == MoveMode.Falling)
 				{
-					if (groundDist <= GROUND_FLOAT_MAX_DIST)
+					if (dist <= GROUND_FLOAT_MAX_DIST)
 					{
 						foundGround = IsValidGroundHit(hit);
 					}
@@ -345,10 +352,18 @@ namespace NetMoveSimulate
 				{
 					// TODO: add gravity for walking mode
 					foundGround = IsValidGroundHit(hit);
+					if (!foundGround)
+					{
+						if (Physics.Raycast(transform.position + upOffset, Vector3.down, out RaycastHit rayHit, checkDist, groundMask, QueryTriggerInteraction.Ignore))
+						{
+							foundGround = IsValidGroundHit(rayHit);
+						}
+					}
 				}
 				if (foundGround)
 				{
 					groundNormal = hit.normal;
+					groundDist = dist;
 				}
 			}
 
@@ -356,7 +371,7 @@ namespace NetMoveSimulate
 			{
 				SwitchMoveMode(MoveMode.Falling);
 			}
-			else if (currentVelocity.y < 0)
+			else if (currentVelocity.y <= 0)
 			{
 				SwitchMoveMode(MoveMode.Walking);
 			}
