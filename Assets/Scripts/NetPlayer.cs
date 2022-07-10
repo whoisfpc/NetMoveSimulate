@@ -229,6 +229,7 @@ namespace NetMoveSimulate
 		{
 			// TODO: split delta time for
 			// TODO: acceleration and brake deceleration
+			// TODO: deal with step up
 			// add input acceleration and ramp velocity
 			// move along ground
 			// if not on ground, switch to falling
@@ -245,14 +246,13 @@ namespace NetMoveSimulate
 				{
 					effectiveAcceleration = groundDeceleration;
 				}
-				currentVelocity = Vector3.ClampMagnitude(currentVelocity + dt * effectiveAcceleration * playerMoveVector, maxSpeed);
+				var moveVectorOnRamp = CalcRampVector(groundNormal, playerMoveVector).normalized;
+				currentVelocity = Vector3.ClampMagnitude(currentVelocity + dt * effectiveAcceleration * moveVectorOnRamp, maxSpeed);
 			}
 
-			var currentHorizonVelocity = new Vector3(currentVelocity.x, 0, currentVelocity.z);
-			var floorDotVel = Vector3.Dot(groundNormal, currentHorizonVelocity);
-			var rampVelocity = new Vector3(currentVelocity.x,  -floorDotVel / groundNormal.y, currentVelocity.z);
+			var rampVector = CalcRampVector(groundNormal, currentVelocity);
 
-			currentVelocity = rampVelocity.normalized * currentVelocity.magnitude;
+			currentVelocity = rampVector.normalized * currentVelocity.magnitude;
 			if (groundDist > GROUND_FLOAT_MAX_DIST)
 			{
 				currentVelocity.y += gravity.y * dt;
@@ -260,6 +260,18 @@ namespace NetMoveSimulate
 			Vector3 canMoveDelta = SafeMove(currentVelocity * dt);
 			transform.position += canMoveDelta;
 			UpdateGround();
+		}
+
+		private Vector3 CalcRampVector(Vector3 rampNormal, Vector3 v)
+		{
+			if (rampNormal.y <= 0 || rampNormal.y >= 1)
+			{
+				return v;
+			}
+			var vHorizon = new Vector3(v.x, 0, v.z);
+			var floorDotVel = Vector3.Dot(rampNormal, vHorizon);
+			var rampVector = new Vector3(vHorizon.x, -floorDotVel / rampNormal.y, vHorizon.z);
+			return rampVector;
 		}
 
 		private void PerformFalling(float dt)
@@ -354,7 +366,7 @@ namespace NetMoveSimulate
 					foundGround = IsValidGroundHit(hit);
 					if (!foundGround)
 					{
-						if (Physics.Raycast(transform.position + upOffset, Vector3.down, out RaycastHit rayHit, checkDist, groundMask, QueryTriggerInteraction.Ignore))
+						if (Physics.Raycast(transform.position + upOffset, Vector3.down, out RaycastHit rayHit, checkDist + GROUND_FLOAT_MAX_DIST, groundMask, QueryTriggerInteraction.Ignore))
 						{
 							foundGround = IsValidGroundHit(rayHit);
 						}
