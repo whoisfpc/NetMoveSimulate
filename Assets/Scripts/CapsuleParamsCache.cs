@@ -20,6 +20,7 @@ namespace NetMoveSimulate
 		private Vector3 _localP2;
 		private CapsuleCollider _capsule;
 		private Transform _transform;
+		private Transform _root;
 
 		public CapsuleCollider Capsule => _capsule;
 		public Transform Transform => _transform;
@@ -29,11 +30,22 @@ namespace NetMoveSimulate
 		public Vector3 PointP1 => _transform.position + _transform.rotation * _localP1;
 		public Vector3 PointP2 => _transform.position + _transform.rotation * _localP2;
 
-		public CapsuleParamsCache(CapsuleCollider capsule)
+		public CapsuleParamsCache(Transform root, CapsuleCollider capsule)
 		{
+			_root = root;
 			_transform = capsule.transform;
 			_capsule = capsule;
 			CalcShapeParams();
+		}
+
+		public Vector3 GetPoint1WithRootPos(Vector3 rootPos)
+		{
+			return PointP1 + rootPos - _root.position;
+		}
+
+		public Vector3 GetPoint2WithRootPos(Vector3 rootPos)
+		{
+			return PointP2 + rootPos - _root.position;
 		}
 
 		public void RefreshShapeParams()
