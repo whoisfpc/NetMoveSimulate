@@ -157,6 +157,7 @@ MonoBehaviour:
   minGroundNormal: 0.71
   jumpInitSpeed: 8
   bodyRenderer: {fileID: 1789124051368441552}
+  eyeRenderer: {fileID: 9031874839502808951}
   id: 0
   capsule: {fileID: 6638390652943461296}
 --- !u!1 &3885522397043989651

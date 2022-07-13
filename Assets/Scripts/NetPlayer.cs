@@ -72,6 +72,7 @@ namespace NetMoveSimulate
 
 		[Header("PlayerInfos")]
 		public Renderer bodyRenderer;
+		public Renderer eyeRenderer;
 		public uint id;
 		public CapsuleCollider capsule;
 
@@ -83,7 +84,7 @@ namespace NetMoveSimulate
 		private uint sequence;
 
 		private readonly Collider[] penetrateOverlapCache = new Collider[64];
-		// TODO: add snap ground speed
+		private float snapGroundAcceleration = 9.8f;
 		private Vector3 gravity = new Vector3(0, -9.8f, 0);
 		private Vector3 currentVelocity;
 		private MoveMode currentMoveMode = MoveMode.Walking;
@@ -93,6 +94,7 @@ namespace NetMoveSimulate
 		private float groundDist = 0;
 		// update every frame by CachePlayerMoveVector
 		private Vector3 playerMoveVector;
+		private float snappingGroundSpeed;
 
 		private void Awake()
 		{
@@ -161,6 +163,9 @@ namespace NetMoveSimulate
 				ClearJumpInput();
 				SendMoveMsg();
 			}
+
+			Color eyeColor = currentMoveMode == MoveMode.Walking ? Color.black : Color.red;
+			eyeRenderer.material.color = eyeColor;
 		}
 
 		private void ResolvePenetrate()
@@ -230,8 +235,6 @@ namespace NetMoveSimulate
 		private void PerformWalking(float dt)
 		{
 			// TODO: split delta time for
-			// TODO: acceleration and brake deceleration
-			// TODO: deal with step up
 			// add input acceleration and ramp velocity
 			// move along ground
 			// if not on ground, switch to falling
@@ -257,9 +260,14 @@ namespace NetMoveSimulate
 			currentVelocity = rampVector.normalized * currentVelocity.magnitude;
 			if (groundDist > GROUND_FLOAT_MAX_DIST)
 			{
-				currentVelocity.y += gravity.y * dt;
+				snappingGroundSpeed += snapGroundAcceleration * dt;
 			}
-			Vector3 safeMoveEndPos = SafeMove(currentVelocity * dt);
+			else
+			{
+				snappingGroundSpeed = 0f;
+			}
+			Vector3 moveDelta = currentVelocity * dt + dt * snappingGroundSpeed * Vector3.down;
+			Vector3 safeMoveEndPos = SafeMove(moveDelta);
 			transform.position = safeMoveEndPos;
 			UpdateGround();
 		}
@@ -303,6 +311,17 @@ namespace NetMoveSimulate
 			UpdateGround();
 		}
 
+		private Vector3 FindImpactNormal(in RaycastHit hit)
+		{
+			// find impact normal
+			Ray impactCheckRay = new Ray(hit.point + 0.1f * hit.normal, -hit.normal);
+			if (hit.collider.Raycast(impactCheckRay, out RaycastHit rayHit, 0.2f))
+			{
+				return rayHit.normal;
+			}
+			return hit.normal;
+		}
+
 		private Vector3 SafeMove(Vector3 delta)
 		{
 			// TODO: a lot of error
@@ -322,13 +341,8 @@ namespace NetMoveSimulate
 					float moveDist = Mathf.Min(hit.distance - AVOID_COLLIDER_DIST, remainDist);
 					tempPos += dir * moveDist + hit.normal * AVOID_COLLIDER_DIST;
 					remainDist -= moveDist;
-					Vector3 reflectNormal = hit.normal;
-					// find impact normal
-					Ray impactCheckRay = new Ray(hit.point + 0.1f * hit.normal, -hit.normal);
-					if (hit.collider.Raycast(impactCheckRay, out RaycastHit rayHit, 0.2f))
-					{
-						reflectNormal = rayHit.normal;
-					}
+					Vector3 reflectNormal = FindImpactNormal(in hit);
+					Debug.DrawRay(hit.point, hit.normal, Color.green, 0, false);
 					Debug.DrawRay(hit.point, reflectNormal, Color.red, 0, false);
 					if (currentMoveMode == MoveMode.Walking)
 					{
@@ -354,6 +368,8 @@ namespace NetMoveSimulate
 							dir = CalcRampVector(dir, reflectNormal).normalized;
 							//currentVelocity = currentVelocity.magnitude * dir;
 						}
+						// TODO: snap to ground
+						SnapToGround(ref tempPos);
 					}
 					else
 					{
@@ -428,6 +444,33 @@ namespace NetMoveSimulate
 			return foundGround;
 		}
 
+		private void SnapToGround(ref Vector3 pos)
+		{
+			Vector3 upOffset = Vector3.up * CHECK_GROUND_UP_OFFSET;
+			Vector3 p1 = capsuleCache.GetPoint1WithRootPos(pos) + upOffset;
+			Vector3 p2 = capsuleCache.GetPoint2WithRootPos(pos) + upOffset;
+			float radius = capsuleCache.Radius;
+			float checkDist = maxStairHeight + CHECK_GROUND_UP_OFFSET + GROUND_FLOAT_MAX_DIST;
+			bool foundGround = false;
+			if (Physics.CapsuleCast(p1, p2, radius, Vector3.down, out RaycastHit hit, checkDist, groundMask, QueryTriggerInteraction.Ignore))
+			{
+				float dist = hit.distance - CHECK_GROUND_UP_OFFSET;
+				foundGround = IsValidGroundHit(hit);
+				if (!foundGround)
+				{
+					if (Physics.Raycast(pos + upOffset, Vector3.down, out RaycastHit rayHit, checkDist + GROUND_FLOAT_MAX_DIST, groundMask, QueryTriggerInteraction.Ignore))
+					{
+						var distDiff = hit.point.y - rayHit.point.y;
+						foundGround = IsValidGroundHit(rayHit) && (distDiff <= maxStairHeight);
+					}
+				}
+				if (foundGround)
+				{
+					pos += Vector3.down * Mathf.Max(0, dist - GROUND_FLOAT_MIN_DIST);
+				}
+			}
+		}
+
 		private void UpdateGround()
 		{
 			Vector3 upOffset = Vector3.up * CHECK_GROUND_UP_OFFSET;
@@ -438,7 +481,6 @@ namespace NetMoveSimulate
 			bool foundGround = false;
 			if (Physics.CapsuleCast(p1, p2, radius, Vector3.down, out RaycastHit hit, checkDist, groundMask, QueryTriggerInteraction.Ignore))
 			{
-				// TODO: check distance by move mode
 				float dist = hit.distance - CHECK_GROUND_UP_OFFSET;
 				if (currentMoveMode == MoveMode.Falling)
 				{
@@ -449,13 +491,13 @@ namespace NetMoveSimulate
 				}
 				else
 				{
-					// TODO: add gravity for walking mode
 					foundGround = IsValidGroundHit(hit);
 					if (!foundGround)
 					{
 						if (Physics.Raycast(transform.position + upOffset, Vector3.down, out RaycastHit rayHit, checkDist + GROUND_FLOAT_MAX_DIST, groundMask, QueryTriggerInteraction.Ignore))
 						{
-							foundGround = IsValidGroundHit(rayHit);
+							var distDiff = hit.point.y - rayHit.point.y;
+							foundGround = IsValidGroundHit(rayHit) && (distDiff <= maxStairHeight);
 						}
 					}
 				}
@@ -502,6 +544,7 @@ namespace NetMoveSimulate
 				currentMoveMode = newMode;
 				if (currentMoveMode == MoveMode.Walking)
 				{
+					snappingGroundSpeed = 0;
 					currentVelocity.y = 0;
 				}
 			}

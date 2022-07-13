@@ -13,5 +13,8 @@ insert_final_newline = true
 indent_style = tab
 indent_size = 4
 
+# IDE0090: Use 'new(...)'
+csharp_style_implicit_object_creation_when_type_is_apparent = false
+
 [*.{diff,md}]
 trim_trailing_whitespace = false
